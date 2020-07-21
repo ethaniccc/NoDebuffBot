@@ -94,35 +94,12 @@ class Bot extends Human{
         $this->setSprinting(true);
         if($this->getHealth() < 5){
             if($this->potionsRemaining !== 0){
-                if($this->yaw < 0){
-                    $this->yaw = abs($this->yaw);
-                } elseif($this->yaw == 0){
-                    $this->yaw = -180;
-                } else {
-                    $this->yaw = -$this->yaw;
-                }
-                $this->pitch = -85;
-                $this->getInventory()->setHeldItemIndex(1);
-                ++$this->neededPots;
-                $player = $this->getTargetPlayer();
-                $soundPacket = new LevelSoundEventPacket();
-                $soundPacket->sound = LevelSoundEventPacket::SOUND_GLASS;
-                $soundPacket->position = $this->asVector3();
-                $player->dataPacket($soundPacket);
-                $effect = new EffectInstance(Effect::getEffect(Effect::INSTANT_HEALTH), 0, 1);
-                $this->addEffect($effect);
-                --$this->potionsRemaining;
-                $this->potTick = Server::getInstance()->getTick();
+                $this->pot();
             } else {
-                $this->lookAt($this->getTargetPlayer()->asVector3());
-                if($this->distance($this->getTargetPlayer()) <= 3){
-                    $this->getInventory()->setHeldItemIndex(0);
-                    if(mt_rand(0, 100) % 4 && Server::getInstance()->getTick() - $this->potTick >= 20){
-                        $event = new EntityDamageByEntityEvent($this, $this->getTargetPlayer(), EntityDamageEvent::CAUSE_ENTITY_ATTACK, $this->getInventory()->getItemInHand() instanceof Sword ? $this->getInventory()->getItemInHand()->getAttackPoints() : 0.5);
-                        $this->broadcastEntityEvent(4);
-                        $this->getTargetPlayer()->attack($event);
-                    }
+                if(!$this->recentlyHit()){
+                    $this->move($this->motion->x, $this->motion->y, $this->motion->z);
                 }
+                $this->attackTargetPlayer();
             }
         } else {
             if(!$this->recentlyHit()){
@@ -133,49 +110,75 @@ class Bot extends Human{
                 return false;
             } elseif($this->neededPots === 1){
                 if($this->potionsRemaining !== 0){
-                    if($this->yaw < 0){
-                        $this->yaw = abs($this->yaw);
-                    } elseif($this->yaw == 0){
-                        $this->yaw = -180;
-                    } else {
-                        $this->yaw = -$this->yaw;
-                    }
-                    $this->pitch = -85;
-                    $this->getInventory()->setHeldItemIndex(1);
-                    ++$this->neededPots;
-                    $player = $this->getTargetPlayer();
-                    $soundPacket = new LevelSoundEventPacket();
-                    $soundPacket->sound = LevelSoundEventPacket::SOUND_GLASS;
-                    $soundPacket->position = $this->asVector3();
-                    $player->dataPacket($soundPacket);
-                    $effect = new EffectInstance(Effect::getEffect(Effect::INSTANT_HEALTH), 0, 1);
-                    $this->addEffect($effect);
-                    --$this->potionsRemaining;
-                    $this->potTick = Server::getInstance()->getTick();
+                    $this->pot();
                 } else {
-                    $this->lookAt($this->getTargetPlayer()->asVector3());
-                    if($this->distance($this->getTargetPlayer()) <= 3){
-                        $this->getInventory()->setHeldItemIndex(0);
-                        if(mt_rand(0, 100) % 4 && Server::getInstance()->getTick() - $this->potTick >= 20){
-                            $event = new EntityDamageByEntityEvent($this, $this->getTargetPlayer(), EntityDamageEvent::CAUSE_ENTITY_ATTACK, $this->getInventory()->getItemInHand() instanceof Sword ? $this->getInventory()->getItemInHand()->getAttackPoints() : 0.5);
-                            $this->broadcastEntityEvent(4);
-                            $this->getTargetPlayer()->attack($event);
-                        }
-                    }
+                    $this->attackTargetPlayer();
                 }
             } else {
-                $this->lookAt($this->getTargetPlayer()->asVector3());
-                if($this->distance($this->getTargetPlayer()) <= 3){
-                    $this->getInventory()->setHeldItemIndex(0);
-                    if(mt_rand(0, 100) % 4 && Server::getInstance()->getTick() - $this->potTick >= 20){
-                        $event = new EntityDamageByEntityEvent($this, $this->getTargetPlayer(), EntityDamageEvent::CAUSE_ENTITY_ATTACK, $this->getInventory()->getItemInHand() instanceof Sword ? $this->getInventory()->getItemInHand()->getAttackPoints() : 0.5);
-                        $this->broadcastEntityEvent(4);
-                        $this->getTargetPlayer()->attack($event);
-                    }
-                }
+                $this->attackTargetPlayer();
             }
         }
         return $this->isAlive();
+    }
+
+    public function attackTargetPlayer() : void{
+        if(mt_rand(0, 100) % 4 === 0){
+            $this->lookAt($this->getTargetPlayer()->asVector3());
+        }
+        if($this->isLookingAt($this->getTargetPlayer()->asVector3())){
+            if($this->distance($this->getTargetPlayer()) <= 3){
+                $this->getInventory()->setHeldItemIndex(0);
+                if(Server::getInstance()->getTick() - $this->potTick >= 20){
+                    $event = new EntityDamageByEntityEvent($this, $this->getTargetPlayer(), EntityDamageEvent::CAUSE_ENTITY_ATTACK, $this->getInventory()->getItemInHand() instanceof Sword ? $this->getInventory()->getItemInHand()->getAttackPoints() : 0.5);
+                    $this->broadcastEntityEvent(4);
+                    $this->getTargetPlayer()->attack($event);
+                }
+            }
+        }
+    }
+
+    public function pot() : void{
+        if($this->yaw < 0){
+            $this->yaw = abs($this->yaw);
+        } elseif($this->yaw == 0){
+            $this->yaw = -180;
+        } else {
+            $this->yaw = -$this->yaw;
+        }
+        $this->pitch = 85;
+        $this->getInventory()->setHeldItemIndex(1);
+        ++$this->neededPots;
+        $player = $this->getTargetPlayer();
+        $soundPacket = new LevelSoundEventPacket();
+        $soundPacket->sound = LevelSoundEventPacket::SOUND_GLASS;
+        $soundPacket->position = $this->asVector3();
+        $player->dataPacket($soundPacket);
+        $effect = new EffectInstance(Effect::getEffect(Effect::INSTANT_HEALTH), 0, 1);
+        $this->addEffect($effect);
+        if($this->distance($player) <= 2){
+            $player->addEffect($effect);
+        }
+        --$this->potionsRemaining;
+        $this->potTick = Server::getInstance()->getTick();
+    }
+
+    /**
+     * @param Vector3 $target
+     * @return bool
+     */
+    public function isLookingAt(Vector3 $target) : bool{
+        $horizontal = sqrt(($target->x - $this->x) ** 2 + ($target->z - $this->z) ** 2);
+        $vertical = $target->y - $this->y;
+        $expectedPitch = -atan2($vertical, $horizontal) / M_PI * 180; //negative is up, positive is down
+
+        $xDist = $target->x - $this->x;
+        $zDist = $target->z - $this->z;
+        $expectedYaw = atan2($zDist, $xDist) / M_PI * 180 - 90;
+        if($expectedYaw < 0){
+            $expectedYaw += 360.0;
+        }
+
+        return abs($expectedPitch - $this->getPitch()) <= 5 && abs($expectedYaw - $this->getYaw()) <= 10;
     }
 
     /**
@@ -186,7 +189,7 @@ class Bot extends Human{
      * @param float $base
      */
     public function knockBack(Entity $attacker, float $damage, float $x, float $z, float $base = 0.4) : void{
-        parent::knockBack($attacker, $damage, $x, $z, $base);
+        parent::knockBack($attacker, $damage, $x, $z, 0.45);
         $this->hitTick = Server::getInstance()->getTick();
     }
 
