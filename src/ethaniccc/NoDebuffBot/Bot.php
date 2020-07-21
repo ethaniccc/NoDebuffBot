@@ -11,6 +11,8 @@ use pocketmine\entity\Human;
 use pocketmine\entity\Skin;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
 use pocketmine\event\entity\EntityDamageEvent;
+use pocketmine\item\enchantment\Enchantment;
+use pocketmine\item\enchantment\EnchantmentInstance;
 use pocketmine\item\Item;
 use pocketmine\item\Sword;
 use pocketmine\level\Level;
@@ -27,7 +29,7 @@ class Bot extends Human{
     private $target = "";
 
     /** @var int */
-    private $hitTick;
+    private $hitTick = 0;
 
     /** @var int */
     private $neededPots = 0;
@@ -39,7 +41,13 @@ class Bot extends Human{
     private $speed = 0.4;
 
     /** @var int */
-    private $potionsRemaining = 34;
+    private $potionsRemaining = 33;
+
+    /** @var int */
+    private $pearlsRemaining = 16;
+
+    /** @var int */
+    private $agroCooldown = 0;
 
     /**
      * Bot constructor.
@@ -64,7 +72,10 @@ class Bot extends Human{
         for($i = 0; $i <= 35; ++$i){
             $this->getInventory()->setItem($i, Item::get(Item::SPLASH_POTION, 22, 1));
         }
-        $this->getInventory()->setItem(0, Item::get(Item::DIAMOND_SWORD));
+        $sword = Item::get(Item::DIAMOND_SWORD);
+        $sword->addEnchantment(new EnchantmentInstance(Enchantment::getEnchantment(Enchantment::FIRE_ASPECT)));
+        $this->getInventory()->setItem(0, $sword);
+        $this->getInventory()->setItem(1, Item::get(Item::ENDER_PEARL, 0, 16));
         $this->getArmorInventory()->setHelmet(Item::get(Item::DIAMOND_HELMET));
         $this->getArmorInventory()->setChestplate(Item::get(Item::DIAMOND_CHESTPLATE));
         $this->getArmorInventory()->setLeggings(Item::get(Item::DIAMOND_LEGGINGS));
@@ -93,7 +104,7 @@ class Bot extends Human{
         }
         $this->setSprinting(true);
         if($this->getHealth() < 5){
-            if($this->potionsRemaining !== 0){
+            if($this->potionsRemaining > 0){
                 $this->pot();
             } else {
                 if(!$this->recentlyHit()){
@@ -109,7 +120,7 @@ class Bot extends Human{
                 $this->flagForDespawn();
                 return false;
             } elseif($this->neededPots === 1){
-                if($this->potionsRemaining !== 0){
+                if($this->potionsRemaining > 0){
                     $this->pot();
                 } else {
                     $this->attackTargetPlayer();
@@ -117,6 +128,17 @@ class Bot extends Human{
             } else {
                 $this->attackTargetPlayer();
             }
+        }
+        if(Server::getInstance()->getTick() - $this->hitTick >= 60){
+            if($this->getHealth() <= 10){
+                $this->pot();
+            }
+        }
+        if($this->distance($this->getTargetPlayer()) > 20){
+            $this->pearl();
+        }
+        if($this->distance($this->getTargetPlayer()) > 0.25 && $this->distance($this->getTargetPlayer()) < 4 && $this->getTargetPlayer()->getHealth() <= 15 && $this->canAgroPearl()){
+            $this->pearl(true);
         }
         return $this->isAlive();
     }
@@ -128,12 +150,25 @@ class Bot extends Human{
         if($this->isLookingAt($this->getTargetPlayer()->asVector3())){
             if($this->distance($this->getTargetPlayer()) <= 3){
                 $this->getInventory()->setHeldItemIndex(0);
-                if(Server::getInstance()->getTick() - $this->potTick >= 20){
+                if(Server::getInstance()->getTick() - $this->potTick >= 5){
                     $event = new EntityDamageByEntityEvent($this, $this->getTargetPlayer(), EntityDamageEvent::CAUSE_ENTITY_ATTACK, $this->getInventory()->getItemInHand() instanceof Sword ? $this->getInventory()->getItemInHand()->getAttackPoints() : 0.5);
                     $this->broadcastEntityEvent(4);
                     $this->getTargetPlayer()->attack($event);
                 }
             }
+        }
+    }
+
+    public function pearl($agro = false) : void{
+        if($this->pearlsRemaining > 0){
+            if(!$agro){
+                $max = 5;
+            } else {
+                $max = 1.5;
+                $this->agroCooldown = Server::getInstance()->getTick();
+            }
+            --$this->pearlsRemaining;
+            $this->teleport($this->getTargetPlayer()->asVector3()->subtract(mt_rand(0, $max), 0, mt_rand(0, $max)));
         }
     }
 
@@ -146,7 +181,7 @@ class Bot extends Human{
             $this->yaw = -$this->yaw;
         }
         $this->pitch = 85;
-        $this->getInventory()->setHeldItemIndex(1);
+        $this->getInventory()->setHeldItemIndex(2);
         ++$this->neededPots;
         $player = $this->getTargetPlayer();
         $soundPacket = new LevelSoundEventPacket();
@@ -179,6 +214,13 @@ class Bot extends Human{
         }
 
         return abs($expectedPitch - $this->getPitch()) <= 5 && abs($expectedYaw - $this->getYaw()) <= 10;
+    }
+
+    /**
+     * @return bool
+     */
+    public function canAgroPearl() : bool{
+        return $this->agroCooldown === null ? true : Server::getInstance()->getTick() - $this->agroCooldown >= 175;
     }
 
     /**
