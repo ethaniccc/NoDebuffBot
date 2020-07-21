@@ -1,0 +1,10 @@
+---
+name: NoDebuffBot
+version: 0.0.1
+main: ethaniccc\NoDebuffBot\Main
+api: 3.14.2
+commands:
+  nodebuff:
+    description: Play against the NoDebuff PvP Bot!
+    usage: "/nodebuff"
+...
