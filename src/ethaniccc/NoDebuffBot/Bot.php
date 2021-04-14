@@ -72,6 +72,7 @@ class Bot extends Human{
         for($i = 0; $i <= 35; ++$i){
             $this->getInventory()->setItem($i, Item::get(Item::SPLASH_POTION, 22, 1));
         }
+        Entity::registerEntity(Bot::class, true)
         $sword = Item::get(Item::DIAMOND_SWORD);
         $sword->addEnchantment(new EnchantmentInstance(Enchantment::getEnchantment(Enchantment::FIRE_ASPECT)));
         $this->getInventory()->setItem(0, $sword);
