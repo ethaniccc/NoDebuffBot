@@ -62,7 +62,7 @@ class Main extends PluginBase implements Listener{
                 } else {
                     $nbt = Entity::createBaseNBT($sender->asVector3()->subtract(10, 0, 10));
                     $nbt->setTag($sender->namedtag->getTag("Skin"));
-                    $bot = new Bot($sender->getLevel(), $nbt, $sender->getName());
+                    $bot = new Bot($this->getServer()->getLevelByName("ndfbot"), $nbt, $sender->getName());
                     $bot->setNameTagAlwaysVisible(true);
                     $bot->spawnToAll();
                     $bot->giveItems();
